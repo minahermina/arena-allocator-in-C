@@ -170,7 +170,7 @@ Region*
 arena__new__region(size_t size)
 {
     Region *region;
-    unsigned char *ptr;
+    void *ptr;
 
     ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     assert(ptr != MAP_FAILED);
