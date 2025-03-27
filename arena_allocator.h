@@ -27,9 +27,8 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
 */
 #ifndef ARENA
 #define ARENA
-#include<sys/mman.h>
-#include<assert.h>
-#include <inttypes.h>
+#include <sys/mman.h>
+#include <assert.h>
 
 #ifndef ARENA_REGION_DEFAULT_CAPACITY
 #define ARENA_REGION_DEFAULT_CAPACITY (8*1024)
@@ -39,10 +38,10 @@ typedef struct Region Region;
 
 struct Region{
     Region *next;
-    Region *prev;
     size_t capacity;
     size_t count;
-    uintptr_t *words; /*Array of words*/
+    size_t remaining;
+    unsigned char *bytes;
 };
 
 typedef struct {
@@ -52,21 +51,23 @@ typedef struct {
 
 const size_t ARENA_REGION_SIZE  = sizeof(Region);
 
-void arena_create(Arena *arena, size_t size);
-void arena_dump(Arena *arena);
+void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
+void arena_dump(Arena *arena);
 void arena_destroy(Arena *arena);
-size_t arena__align__size(size_t size);
 
-void region_dump(Region* region);
 Region* arena__new__region(size_t capacity);
+void arena__append__region(Arena *arena, size_t size);
+size_t arena__align__size(size_t size);
 void arena__region__dump(Region* region);
+void arena__free__region(Region* region);
+
 #endif /*ARENA*/
 // #define ARENA_ALLOCATOR_IMPLEMENTATION
 
 #ifdef ARENA_ALLOCATOR_IMPLEMENTATION
-/* This must be called at the beginning of the lifetime to initialize the arena*/
-size_t 
+
+size_t
 arena__align__size(size_t size)
 {
     size_t size_page_aligned, page_size, region_size, size_bytes;
@@ -76,14 +77,15 @@ arena__align__size(size_t size)
     size_page_aligned = (size_bytes + page_size - 1) & ~(page_size - 1);
     return size_page_aligned;
 }
+
+/* This must be called at the beginning of the lifetime to initialize the arena*/
 void
-arena_create(Arena *arena, size_t size)
+arena_init(Arena *arena, size_t size)
 {
     Region * region;
     size = arena__align__size(size);
     region = arena__new__region(size);
 
-    // head, tail
     arena->head = region;
     arena->tail = region;
 }
@@ -91,44 +93,39 @@ arena_create(Arena *arena, size_t size)
 void*
 arena_alloc(Arena *arena, size_t size)
 {
+    Region *curr_region;
+    void *ptr = NULL;
 
-}
+    assert(arena != NULL);
+    assert(arena->head != NULL);
 
-void arena_destroy(Arena *arena){
+    curr_region = arena->head;
+    while(curr_region != NULL){
+        if(size <= curr_region->remaining) {
+            ptr = (void*)(curr_region->bytes + curr_region->count);
+            curr_region->count      += size;
+            curr_region->remaining  -= size;
+            return ptr;
+        }
+        curr_region = curr_region->next;
+    }
 
+    // Allocate new region as no space available
+    arena__append__region(arena, size);
+    curr_region = arena->tail;
+    ptr = (void*)(curr_region->bytes + curr_region->count);
 
-}
-
-Region*
-arena__new__region(size_t capacity)
-{
-    Region *region;
-    unsigned char *ptr;
-
-
-    ptr = mmap(NULL, capacity, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-    assert(ptr != MAP_FAILED);
-
-    region = (Region*) ptr;
-    region->next = NULL;
-    region->prev = NULL;
-    region->capacity = capacity - ARENA_REGION_SIZE;
-    region->count = 0;
-    region->words = (uintptr_t*)((char*)ptr + ARENA_REGION_SIZE);
-
-    return (Region*)ptr;
+    return ptr;
 }
 
 void
 arena_dump(Arena *arena)
 {
     Region *current;
-    size_t cnt = 0;
+
     assert(arena != NULL);
 
     current = arena->head;
-
-    printf("===> %zu\n", cnt);
     while(current != NULL){
         arena__region__dump(current);
         current= current->next;
@@ -136,21 +133,68 @@ arena_dump(Arena *arena)
 }
 
 void
+arena_destroy(Arena *arena)
+{
+    Region* curr_region, *temp;
+    curr_region = arena->head;
+    while(curr_region != NULL){
+        temp = curr_region;
+        curr_region = curr_region->next;
+        arena__free__region(temp);
+    }
+    arena->head = NULL;
+    arena->tail = NULL;
+}
+
+Region*
+arena__new__region(size_t size)
+{
+    Region *region;
+    unsigned char *ptr;
+
+    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    assert(ptr != MAP_FAILED);
+
+    region = (Region*) ptr;
+    region->next       = NULL;
+    region->capacity   = size - ARENA_REGION_SIZE;
+    region->remaining  = size - ARENA_REGION_SIZE;
+    region->count      = 0;
+    region->bytes      = ((unsigned char*)ptr) + ARENA_REGION_SIZE;
+
+    return region;
+}
+
+void
+arena__append__region(Arena *arena, size_t size)
+{
+    Region *region;
+    size = arena__align__size(size);
+    region = arena__new__region(size);
+    arena->tail->next = region;
+    arena->tail = region;
+}
+
+void
 arena__region__dump(Region* region)
 {
+    assert(region != NULL);
     printf("===> Region Dump\n");
-    printf("Address: %p\n", (void*)region);
-    printf("Prev:    %p\n", (void*)region->prev);
-    printf("Next:    %p\n", (void*)region->next);
-    printf("Capacity: %zu bytes\n", region->capacity);
-    printf("Used:     %zu bytes\n", region->count);
-    printf("Free:     %zu bytes\n", region->capacity - region->count);
-
-    printf("First 8 words of data:\n");
-    for (size_t i = 0; i < 8 && i < region->count / sizeof(uintptr_t); i++) {
-        printf("  words[%zu]: 0x%" PRIxPTR "\n", i, region->words[i]);
-    }
+    printf("Address:    %p\n", (void*)region);
+    printf("Next:       %p\n", (void*)region->next);
+    printf("Capacity:   %zu bytes\n", region->capacity);
+    printf("Used:       %zu bytes\n", region->count);
+    printf("Free:       %zu bytes\n", region->remaining);
     printf("\n");
+}
+
+void
+arena__free__region(Region* region)
+{
+    assert(region != NULL);
+    size_t size_bytes = ARENA_REGION_SIZE + region->capacity;
+    int ret = munmap(region, size_bytes);
+    assert(ret == 0);
 }
 
 #endif /*ARENA_ALLOCATOR_IMPLEMENTATION*/
