@@ -1,4 +1,4 @@
-# Arena Allocator: Efficient Memory Management in C
+# Arena Allocator
 
 ## What is an Arena Allocator?
 
@@ -12,7 +12,6 @@ An arena allocator (also known as a region-based memory allocator) is a memory m
 ## Key Features
 
 - Single-header library implementation
-- Simple, intuitive API
 - Automatic memory management
 - Memory aligned to system pages using `mmap()`
 - No individual memory tracking required
