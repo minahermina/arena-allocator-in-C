@@ -24,6 +24,26 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
 
     #define ARENA_ALLOCATOR_IMPLEMENTATION
     #include "arena_allocator.h"
+
+    ==> Typical Usage Flow:
+        1. Create an Arena: Initialize the arena with a starting size
+            Arena arena = {0};
+            arena_init(&my_arena, ARENA_REGION_DEFAULT_CAPACITY);
+
+        2. Allocate Memory: Use arena_alloc to allocate memory
+            int *numbers = (int*)arena_alloc(&my_arena, 10 * sizeof(int));
+            char *string = (char*)arena_alloc(&my_arena, 100 * sizeof(char));
+
+        3. (Optional) Inspect Arena: Use arena_dump to print regions information
+            arena_dump(&my_arena);
+
+        4. Clean Up: Destroy the arena when done
+            arena_destroy(&my_arena);
+
+    ==> NOTE:
+        -- private functions uses second underscore like arena__* and should not be used by the user.
+        -- These functions are used internally by the library.
+
 */
 #ifndef ARENA
 #define ARENA
