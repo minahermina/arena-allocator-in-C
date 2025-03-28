@@ -50,9 +50,6 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
 #include <sys/mman.h>
 #include <assert.h>
 
-#ifndef ARENA_REGION_DEFAULT_CAPACITY
-#define ARENA_REGION_DEFAULT_CAPACITY (8*1024)
-#endif /*ARENA_REGION_DEFAULT_CAPACITY */
 
 typedef struct Region Region;
 
@@ -69,7 +66,12 @@ typedef struct {
     Region *tail;
 } Arena;
 
-const size_t ARENA_REGION_SIZE  = sizeof(Region);
+#define ARENA_REGION_SIZE               (sizeof(Region))
+#define ARENA_PAGE_SIZE                 (sysconf(_SC_PAGESIZE))
+
+#ifndef ARENA_REGION_DEFAULT_CAPACITY
+#define ARENA_REGION_DEFAULT_CAPACITY   (ARENA_PAGE_SIZE * 2)
+#endif /*ARENA_REGION_DEFAULT_CAPACITY */
 
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
