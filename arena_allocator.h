@@ -77,6 +77,7 @@ void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void *arena_realloc(Arena *arena, void *oldptr, size_t oldsz, size_t newsz);
 void arena_dump(Arena *arena);
+void arena_reset(Arena *arena);
 void arena_destroy(Arena *arena);
 
 Region* arena__new__region(size_t capacity);
@@ -176,6 +177,16 @@ arena_dump(Arena *arena)
     }
 }
 
+void
+arena_reset(Arena *arena){
+    Region *curr;
+    assert(arena != NULL);
+
+    for(curr = arena->head; curr != NULL; curr = curr->next){
+        curr->count = 0;
+        curr->remaining = curr->capacity;
+    }
+}
 void
 arena_destroy(Arena *arena)
 {
