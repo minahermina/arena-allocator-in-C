@@ -224,7 +224,11 @@ void
 arena__append__region(Arena *arena, size_t size)
 {
     Region *region;
-    size = arena__align__size(size);
+    if(size < ARENA_REGION_DEFAULT_CAPACITY){
+        size = ARENA_REGION_DEFAULT_CAPACITY;
+    } else{
+        size = arena__align__size(size);
+    }
     region = arena__new__region(size);
     arena->tail->next = region;
     arena->tail = region;
