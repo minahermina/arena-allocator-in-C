@@ -48,14 +48,11 @@ arena_destroy(&arena);
 - `arena_alloc()`: Allocate memory within the arena
 - `arena_dump()`: Print memory region information
 - `arena_destroy()`: Free all memory associated with the arena
-- `arena_realloc()`: (To be added) Resize a previously allocated memory block within the arena
+- `arena_realloc()`:  Resize a previously allocated memory block within the arena
+- `arena_reset()`:  Reset the arena, freeing all allocations without deallocating the regions.
 
 ### Future Plans
-
-Add utilities for:
-- Dynamic array manipulation.
-- String handling and management.
-- reallocating object already allocated.
+- For detailed future plans, check the `TODOs` section in [`arena_allocator.h`](./arena_allocator.h).
 
 
 ## Recommended Reading
