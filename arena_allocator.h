@@ -44,12 +44,23 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
         -- private functions uses second underscore like arena__* and should not be used by the user.
         -- These functions are used internally by the library.
 
+
+    ==> TODOs for Arena Allocator:
+        - [ ] Dynamic array manipulation.
+        - [ ] String handling and management.
+        - [ ] Implement a better reallocation strategy to minimize wasted memory.
+        - [ ] Improve memory alignment.
+        - [ ] Implement debugging utilities for tracking memory usage.
+        - [ ] Store Region meta data out of band
+
+
 */
 #ifndef ARENA_ALLOCATOR
 #define ARENA_ALLOCATOR
 #include <sys/mman.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <assert.h>
-
 
 typedef struct Region Region;
 
@@ -73,6 +84,8 @@ typedef struct {
 #define ARENA_REGION_DEFAULT_CAPACITY   (ARENA_PAGE_SIZE * 2)
 #endif /*ARENA_REGION_DEFAULT_CAPACITY */
 
+
+
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void *arena_realloc(Arena *arena, void *oldptr, size_t oldsz, size_t newsz);
@@ -87,6 +100,7 @@ void arena__region__dump(Region* region);
 void arena__free__region(Region* region);
 
 #endif /*ARENA_ALLOCATOR*/
+
 
 #ifdef ARENA_ALLOCATOR_IMPLEMENTATION
 
@@ -140,6 +154,14 @@ arena_alloc(Arena *arena, size_t size)
 }
 
 
+/*
+    Memory in the arena allocator is managed in a linear fashion,
+    meaning previously allocated blocks cannot be individually freed or reused.
+    When reallocating, a new block is allocated, and the old block remains unused,
+    effectively making it "orphaned." This can lead to increased memory usage over time.
+
+    TODO: Find a better approach to handle reallocations
+*/
 void *
 arena_realloc(Arena *arena, void *old_ptr, size_t old_size, size_t new_size)
 {
