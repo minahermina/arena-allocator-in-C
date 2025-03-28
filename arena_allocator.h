@@ -75,6 +75,7 @@ typedef struct {
 
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
+void *arena_realloc(Arena *arena, void *oldptr, size_t oldsz, size_t newsz);
 void arena_dump(Arena *arena);
 void arena_destroy(Arena *arena);
 
@@ -139,6 +140,27 @@ arena_alloc(Arena *arena, size_t size)
 
     return ptr;
 }
+
+
+void *
+arena_realloc(Arena *arena, void *old_ptr, size_t old_size, size_t new_size)
+{
+    unsigned char *new_ptr;
+    size_t i;
+    assert(arena != NULL);
+
+    if(new_size < old_size)
+        return old_ptr;
+
+    new_ptr = (unsigned char*)arena_alloc(arena, new_size);
+
+    unsigned char * old_ptr_char = (unsigned char*)old_ptr;
+    for(i = 0; i < old_size; ++i){ /*Assuming no overlap happens*/
+        new_ptr[i] = old_ptr_char[i];
+    }
+    return  (void*)new_ptr;
+}
+
 
 void
 arena_dump(Arena *arena)
