@@ -1,25 +1,38 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <unistd.h>
-
 #define ARENA_ALLOCATOR_IMPLEMENTATION
 #include "arena_allocator.h"
+#include <stdio.h>
 
-#define ALLOC_SIZE 10000
-int main(){
-    Arena arena = {0};
-    arena_init(&arena, ALLOC_SIZE);
+int main() {
+    // Initialize the arena
+    Arena my_arena = {0};
+    arena_init(&my_arena, ARENA_REGION_DEFAULT_CAPACITY);
 
+    // Allocate memory using the arena
+    int *numbers = (int*)arena_alloc(&my_arena, 10 * sizeof(int));
+    char *string = (char*)arena_alloc(&my_arena, 100 * sizeof(char));
 
-    char* arr = (char*)arena_alloc(&arena, 100);
-    char* arr1 = (char*)arena_alloc(&arena, 1000);
-    char* arr2 = (char*)arena_alloc(&arena, 2000);
-    char* arr3 = (char*)arena_alloc(&arena, 3000);
-    char* arr4 = (char*)arena_alloc(&arena, 10000);
+    if (!numbers || !string) {
+        printf("Memory allocation failed!\n");
+        return 1;
+    }
 
-    assert(arr4 != NULL);
+    // Use the allocated memory
+    for (int i = 0; i < 10; i++) {
+        numbers[i] = i * i;
+    }
+    snprintf(string, 100, "Hello from the arena allocator!");
 
-    arena_destroy(&arena);
+    // Print allocated data
+    printf("Numbers: ");
+    for (int i = 0; i < 10; i++) {
+        printf("%d ", numbers[i]);
+    }
+    printf("\nString: %s\n", string);
 
+    // Dump arena state (optional)
+    arena_dump(&my_arena);
+
+    // Deallocate the arena all at once
+    arena_destroy(&my_arena);
     return 0;
 }
