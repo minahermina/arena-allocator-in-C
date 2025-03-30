@@ -46,12 +46,14 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
 
 
     ==> TODOs for Arena Allocator:
-        - [ ] Dynamic array manipulation.
+        - [x] Dynamic array manipulation.
+        - [ ] Store Region meta data out of band
         - [ ] String handling and management.
         - [ ] Implement a better reallocation strategy to minimize wasted memory.
         - [ ] Improve memory alignment.
         - [ ] Implement debugging utilities for tracking memory usage.
-        - [ ] Store Region meta data out of band
+        - [ ] Implement thread safety with mutex locking
+        - [ ] Add thread-local storage support for better multi-threaded performance
 
 
 */
