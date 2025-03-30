@@ -95,6 +95,8 @@ typedef struct {
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void *arena_realloc(Arena *arena, void *oldptr, size_t oldsz, size_t newsz);
+size_t arena_strlen(const char *str); /*this is implemented to instead of including <string.h>*/
+void *arena_memcpy(void *dest, const void *src, size_t n); /*just like arena_strlen*/
 void arena_dump(Arena *arena);
 void arena_reset(Arena *arena);
 void arena_destroy(Arena *arena);
@@ -159,6 +161,29 @@ arena_alloc(Arena *arena, size_t size)
     return ptr;
 }
 
+size_t
+arena_strlen(const char *str)
+{
+    size_t sz = 0;
+    while(*str){
+        sz++;
+        str++;
+    }
+    return sz;
+}
+
+void *
+arena_memcpy(void *dest, const void *src, size_t n)
+{
+    const char *_src = src;
+    char *_dest = dest;
+    for( ; n !=0; n--){
+        *_dest = *_src;
+        _dest++;
+        _src++;
+    }
+    return _dest;
+}
 
 #define arena_arr_append(arena, arr, item) \
     do{ \
@@ -172,6 +197,41 @@ arena_alloc(Arena *arena, size_t size)
         } \
         (arr)->items[(arr)->size] = item;\
         (arr)->size++; \
+    } while(0)
+
+
+
+#define arena_str_append(a, str, ch) \
+    do { \
+        if ((str)->size + 2 > (str)->capacity) { /* +2 for char and null terminator */ \
+            size_t new_capacity = (str)->capacity ? (str)->capacity * 2 : ARENA_ARR_INIT_CAPACITY; \
+            (str)->items = arena_realloc((a), \
+                                        (str)->items, \
+                                        (str)->capacity * sizeof(char), \
+                                        new_capacity * sizeof(char)); \
+            (str)->capacity = new_capacity; \
+        } \
+        (str)->items[(str)->size] = (ch); \
+        (str)->size++; \
+        (str)->items[(str)->size] = '\0'; \
+    } while(0)
+
+#define arena_str_append_cstr(a, str, item) \
+    do { \
+        size_t len = arena_strlen(item); \
+        size_t new_size = (str)->size + len; \
+        if (new_size + 1 > (str)->capacity) { /* +1 for null terminator */ \
+            size_t new_capacity = (str)->capacity ? (str)->capacity * 2 : ARENA_ARR_INIT_CAPACITY; \
+            while (new_capacity < new_size + 1) new_capacity *= 2; \
+            (str)->items = arena_realloc((a), \
+                                        (str)->items, \
+                                        (str)->capacity * sizeof(char), \
+                                        new_capacity * sizeof(char)); \
+            (str)->capacity = new_capacity; \
+        } \
+        arena_memcpy((str)->items + (str)->size, (item), len); \
+        (str)->size = new_size; \
+        (str)->items[(str)->size] = '\0'; \
     } while(0)
 
 /*
