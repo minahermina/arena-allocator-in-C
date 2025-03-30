@@ -85,6 +85,10 @@ typedef struct {
 #endif /*ARENA_REGION_DEFAULT_CAPACITY */
 
 
+#ifndef ARENA_ARR_INIT_CAPACITY
+#define ARENA_ARR_INIT_CAPACITY 256
+#endif // ARENA_DA_INIT_CAP
+
 
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
@@ -153,6 +157,20 @@ arena_alloc(Arena *arena, size_t size)
     return ptr;
 }
 
+
+#define arena_arr_append(arena, arr, item) \
+    do{ \
+        if((arr)->size >= (arr)->capacity) { \
+            size_t new_capacity = (arr)->capacity == 0 ? ARENA_ARR_INIT_CAPACITY : (arr)->capacity*2;  \
+            (arr)->items = arena_realloc(arena, \
+                                         (arr)->items, \
+                                         (arr)->capacity*sizeof(*(arr)->items), \
+                                         new_capacity*sizeof(*(arr)->items)); \
+            (arr)->capacity = new_capacity; \
+        } \
+        (arr)->items[(arr)->size] = item;\
+        (arr)->size++; \
+    } while(0)
 
 /*
     Memory in the arena allocator is managed in a linear fashion,
