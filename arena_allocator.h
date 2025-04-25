@@ -48,7 +48,7 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
     ==> TODOs for Arena Allocator:
         - [x] Dynamic array manipulation.
         - [ ] Store Region meta data out of band
-        - [ ] String handling and management.
+        - [x] String handling and management.
         - [ ] Implement a better reallocation strategy to minimize wasted memory.
         - [ ] Improve memory alignment.
         - [ ] Implement debugging utilities for tracking memory usage.
@@ -79,8 +79,17 @@ typedef struct {
     Region *tail;
 } Arena;
 
-#define ARENA_REGION_SIZE               (sizeof(Region))
-#define ARENA_PAGE_SIZE                 (sysconf(_SC_PAGESIZE))
+
+#define ARENA_ARR(name, type) \
+    typedef struct name { \
+        type *items; \
+        size_t size; \
+        size_t capacity; \
+    } name
+
+#define ARENA_REGION_SIZE        (sizeof(Region))
+#define ARENA_PAGE_SIZE          (sysconf(_SC_PAGESIZE))
+#define ARENA_SIZE_ARR(arr)      (sizeof(arr) / sizeof((arr)[0]))
 
 #ifndef ARENA_REGION_DEFAULT_CAPACITY
 #define ARENA_REGION_DEFAULT_CAPACITY   (ARENA_PAGE_SIZE * 2)
@@ -91,16 +100,17 @@ typedef struct {
 #define ARENA_ARR_INIT_CAPACITY 256
 #endif // ARENA_DA_INIT_CAP
 
-
+/*Functions declarations*/
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void *arena_realloc(Arena *arena, void *oldptr, size_t oldsz, size_t newsz);
-size_t arena_strlen(const char *str); /*this is implemented to instead of including <string.h>*/
+size_t arena_strlen(const char *str); /*this is implemented  instead of including <string.h>*/
 void *arena_memcpy(void *dest, const void *src, size_t n); /*just like arena_strlen*/
 void arena_dump(Arena *arena);
 void arena_reset(Arena *arena);
 void arena_destroy(Arena *arena);
 
+/*Private Functions declarations*/
 Region* arena__new__region(size_t capacity);
 void arena__append__region(Arena *arena, size_t size);
 size_t arena__align__size(size_t size);
@@ -272,7 +282,7 @@ arena_dump(Arena *arena)
 
     printf("=============================\n");
     for(curr = arena->head; curr != NULL; curr = curr->next ){
-        printf("===> Region %d:\n", cnt);
+        printf("===> Region %zu:\n", cnt);
         arena__region__dump(curr);
         cnt++;
     }
@@ -326,7 +336,7 @@ void
 arena__append__region(Arena *arena, size_t size)
 {
     Region *region;
-    if(size < ARENA_REGION_DEFAULT_CAPACITY){
+    if(size < (size_t)ARENA_REGION_DEFAULT_CAPACITY){
         size = ARENA_REGION_DEFAULT_CAPACITY;
     } else{
         size = arena__align__size(size);
@@ -358,3 +368,4 @@ arena__free__region(Region* region)
 }
 
 #endif /*ARENA_ALLOCATOR_IMPLEMENTATION*/
+
