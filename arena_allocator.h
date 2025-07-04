@@ -106,9 +106,11 @@ typedef struct {
 void arena_init(Arena *arena, size_t size);
 void *arena_alloc(Arena *arena, size_t size);
 void *arena_realloc(Arena *arena, void *oldptr, size_t oldsz, size_t newsz);
-size_t arena_strlen(const char *str); /*this is implemented  instead of including <string.h>*/
-void *arena_memcpy(void *dest, const void *src, size_t n); /*just like arena_strlen*/
+size_t arena_strlen(const char *str); /* this is implemented  instead of including <string.h>*/
+void *arena_memcpy(void *dest, const void *src, size_t n); /* just like arena_strlen*/
 void arena_dump(Arena *arena);
+
+/* Must be used only when no other threads are using the arena*/
 void arena_reset(Arena *arena);
 void arena_destroy(Arena *arena);
 
@@ -404,6 +406,7 @@ arena__region__dump(Region* region)
 {
     assert(region != NULL);
     printf("Address:    %p\n", (void*)region);
+    printf("Starts at:  %p\n", (void*)region->bytes);
     printf("Next:       %p\n", (void*)region->next);
     printf("Capacity:   %zu bytes\n", region->capacity);
     printf("Used:       %zu bytes\n", region->count);
