@@ -52,7 +52,7 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
         - [ ] Implement a better reallocation strategy to minimize wasted memory.
         - [ ] Improve memory alignment.
         - [ ] Implement debugging utilities for tracking memory usage.
-        - [ ] Implement thread safety with mutex locking
+        - [x] Implement thread safety with mutex locking
         - [ ] Add thread-local storage support for better multi-threaded performance
 
 
@@ -63,6 +63,7 @@ To include the implementation, define `ARENA_ALLOCATOR_IMPLEMENTATION` **in exac
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
+#include <pthread.h>
 
 typedef struct Region Region;
 
@@ -77,6 +78,7 @@ struct Region{
 typedef struct {
     Region *head;
     Region *tail;
+    pthread_mutex_t mutex;
 } Arena;
 
 
@@ -111,6 +113,7 @@ void arena_reset(Arena *arena);
 void arena_destroy(Arena *arena);
 
 /*Private Functions declarations*/
+void *arena__alloc__unlocked(Arena *arena, size_t size);
 Region* arena__new__region(size_t capacity);
 void arena__append__region(Arena *arena, size_t size);
 size_t arena__align__size(size_t size);
@@ -138,18 +141,24 @@ void
 arena_init(Arena *arena, size_t size)
 {
     Region *region;
+    int ret;
     size = arena__align__size(size);
     region = arena__new__region(size);
 
     arena->head = region;
     arena->tail = region;
+
+    /* Init the mutex */
+    ret = pthread_mutex_init(&arena->mutex, NULL);
+    assert(ret == 0);
 }
 
 void*
-arena_alloc(Arena *arena, size_t size)
+arena__alloc__unlocked(Arena *arena, size_t size)
 {
     Region *curr;
     void *ptr;
+    int ret;
 
     assert(arena != NULL);
     assert(arena->head != NULL);
@@ -159,6 +168,7 @@ arena_alloc(Arena *arena, size_t size)
             ptr = (void*)(curr->bytes + curr->count);
             curr->count      += size;
             curr->remaining  -= size;
+
             return ptr;
         }
     }
@@ -167,6 +177,29 @@ arena_alloc(Arena *arena, size_t size)
     arena__append__region(arena, size);
     curr = arena->tail;
     ptr = (void*)(curr->bytes + curr->count);
+
+    return ptr;
+}
+
+
+void*
+arena_alloc(Arena *arena, size_t size)
+{
+    void *ptr;
+    int ret;
+
+    assert(arena != NULL);
+    assert(arena->head != NULL);
+
+    /* Locking the mutex */
+    ret = pthread_mutex_lock(&arena->mutex);
+    assert(ret == 0);
+
+    ptr = arena__alloc__unlocked(arena, size);
+
+    /* Unlocking the mutex */
+    ret = pthread_mutex_unlock(&arena->mutex);
+    assert(ret == 0);
 
     return ptr;
 }
@@ -257,18 +290,27 @@ arena_realloc(Arena *arena, void *old_ptr, size_t old_size, size_t new_size)
 {
     unsigned char *new_ptr;
     size_t i;
+    int ret;
     assert(arena != NULL);
 
     if(new_size < old_size)
         return old_ptr;
 
-    new_ptr = (unsigned char*)arena_alloc(arena, new_size);
+    /* Locking the mutex */
+    ret = pthread_mutex_lock(&arena->mutex);
+    assert(ret == 0);
+
+    new_ptr = (unsigned char*)arena__alloc__unlocked(arena, new_size);
 
     unsigned char * old_ptr_char = (unsigned char*)old_ptr;
     for(i = 0; i < old_size; ++i){ /*Assuming no overlap happens*/
         new_ptr[i] = old_ptr_char[i];
     }
-    return  (void*)new_ptr;
+
+    /* Unlocking the mutex */
+    ret = pthread_mutex_unlock(&arena->mutex);
+    assert(ret == 0);
+    return (void*) new_ptr;
 }
 
 
@@ -299,11 +341,18 @@ arena_reset(Arena *arena){
         curr->count = 0;
         curr->remaining = curr->capacity;
     }
+
+    /* Safe to destroy - no other threads should be using it */
+    ret = pthread_mutex_destroy(&arena->mutex);
+    assert(ret == 0);
 }
+
 void
 arena_destroy(Arena *arena)
 {
     Region* curr, *temp;
+    int ret;
+
     for(curr = arena->head; curr != NULL;){
         temp = curr;
         curr = curr->next;
@@ -311,6 +360,10 @@ arena_destroy(Arena *arena)
     }
     arena->head = NULL;
     arena->tail = NULL;
+
+    /* Safe to destroy - no other threads should be using it */
+    ret = pthread_mutex_destroy(&arena->mutex);
+    assert(ret == 0);
 }
 
 Region*
