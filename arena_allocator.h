@@ -337,6 +337,7 @@ arena_dump(Arena *arena)
 void
 arena_reset(Arena *arena){
     Region *curr;
+    int ret;
     assert(arena != NULL);
 
     for(curr = arena->head; curr != NULL; curr = curr->next){
@@ -346,6 +347,10 @@ arena_reset(Arena *arena){
 
     /* Safe to destroy - no other threads should be using it */
     ret = pthread_mutex_destroy(&arena->mutex);
+    assert(ret == 0);
+
+    /* Re-initialize the mutex for future use */
+    ret = pthread_mutex_init(&arena->mutex, NULL);
     assert(ret == 0);
 }
 
