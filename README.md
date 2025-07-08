@@ -69,6 +69,61 @@ arena_destroy(&arena);
 - `ARENA_ARR_INIT_CAPACITY`: Initial capacity for dynamic arrays (defaults to 256).
 - `ARENA_ARR(name, type)`: Macro to define typed dynamic array structures.
 
+### Thread-Safety
+The arena allocator is thread-safe for allocations (`arena_alloc`) and reallocations (`arena_realloc`). A mutex is used to protect the internal state of the arena, allowing multiple threads to safely allocate memory from the same arena.
+
+**Example using `pthreads`:**
+```c
+#include <pthread.h>
+#include <stdio.h>
+
+#define ARENA_ALLOCATOR_IMPLEMENTATION
+#include "arena_allocator.h"
+
+#define NUM_THREADS 4
+#define ALLOCATIONS_PER_THREAD 1000
+
+typedef struct {
+    Arena *arena;
+    int thread_id;
+} thread_data_t;
+
+void *worker(void *arg) {
+    thread_data_t *data = (thread_data_t *)arg;
+    for (int i = 0; i < ALLOCATIONS_PER_THREAD; ++i) {
+        // Each thread allocates a small chunk of memory
+        int *my_alloc = (int *)arena_alloc(data->arena, sizeof(int));
+        if (my_alloc) {
+            *my_alloc = data->thread_id;
+        }
+    }
+    return NULL;
+}
+
+int main() {
+    Arena arena = {0};
+    arena_init(&arena, ARENA_REGION_DEFAULT_CAPACITY);
+
+    pthread_t threads[NUM_THREADS];
+    thread_data_t thread_data[NUM_THREADS];
+
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        thread_data[i].arena = &arena;
+        thread_data[i].thread_id = i;
+        pthread_create(&threads[i], NULL, worker, &thread_data[i]);
+    }
+
+    for (int i = 0; i < NUM_THREADS; ++i) {
+        pthread_join(threads[i], NULL);
+    }
+
+    printf("All threads finished allocating.\n");
+    arena_dump(&arena);
+    arena_destroy(&arena);
+
+    return 0;
+}
+```
 
 ### Future Plans
 - For detailed future plans, check the `TODOs` section in [`arena_allocator.h`](./arena_allocator.h).
